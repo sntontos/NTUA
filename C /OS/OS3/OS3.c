@@ -11,13 +11,18 @@
 bool args_handler(int *arg1, char *arg2, int *command)
 {
     if (*arg1 <= 0 || strlen(arg2) == 0){ return false; }
-    if(strcmp(arg2, "--round-robin") == 0)
+    
+    if (arg2 == NULL || strcmp(arg2, "") == 0 || strcmp(arg2, "--random") == 0)
+    {
+        *command = 2; // Random
+    }
+    else if(strcmp(arg2, "--round-robin") == 0)
     {
         *command = 1; // Round Robin
     }
-    if (strcmp(arg2, "--random") == 0 || arg2 == NULL)
+    else
     {
-        *command = 2; // Random
+        return false; // Invalid command
     }
     return true;
 }
