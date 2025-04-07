@@ -1,39 +1,43 @@
 let filename = Sys.argv.(1)
-
 let m_list = ref []
 let k_list = ref []
-let capacity = ref 0
 
+let rec nth_element lst n =
+  match lst, n with
+  | [], _ -> failwith "Index out of bounds"
+  | x::_, 0 -> x
+  | _::xs, n when n > 0 -> nth_element xs (n - 1)
+  | _ -> failwith "Negative index" 
+
+let rec diff lst1 lst2 =
+  match lst1, lst2 with
+  | [], [] -> []
+  | x::xs, y::ys -> (x - y) :: diff xs ys
+  | _ -> failwith "Lists must have the same length"
+
+let rec zip_with_index lst idx =
+  match lst with
+  | [] -> []
+  | x::xs -> (x, idx) :: zip_with_index xs (idx + 1)
+
+let rec sum (tuple_lst, m, k) lst1 lst2 =
+  match tuple_lst, m, k with
+  | _, 0, 0 -> 0
+  | [], _, _ -> 0
+  | (x, idx)::xs, 0, k -> nth_element lst2 idx + sum (xs, 0, k - 1) lst1 lst2  
+  | (x, idx)::xs, m, k -> nth_element lst1 idx + sum (xs, m - 1 , k) lst1 lst2
 (* Διαβάζει τις γραμμές από το αρχείο και τις αποθηκεύει σε λίστες *)
-
-let rec sum_selective lst1 lst2 m k =
-    match lst1, lst2 with
-    | _, _ when m = 0 && k = 0 -> 0
-    | h1 :: t1, h2 :: t2 ->
-        if h1 >= h2 && m > 0 then
-          h1 + sum_selective t1 lst2 (m - 1) k
-        else if k > 0 then
-          h2 + sum_selective lst1 t2 m (k - 1)
-        else
-          0
-    | h1 :: t1, [] when m > 0 -> h1 + sum_selective t1 [] (m - 1) k
-    | [], h2 :: t2 when k > 0 -> h2 + sum_selective [] t2 m (k - 1)
-    | _ -> 0
-
 
 let () =
   (* Open the input file *)
-  let ic = open_in filename in
+  let ic =
+    try open_in filename
+    with Sys_error msg ->
+      Printf.eprintf "Error opening file: %s\n" msg;
+      exit 1
+  in
   try
-    (* Read the first line to extract m and k *)
-    let first_line = input_line ic in
-    let m, k =
-      match String.split_on_char ' ' first_line with
-      | [m_str; k_str] -> int_of_string m_str, int_of_string k_str
-      | _ -> failwith "First line must contain exactly two integers (m and k)"
-    in
-
-    (* Read the remaining lines and split into m_list and k_list *)
+    (* Read the lines and split into m_list and k_list *)
     while true do
       let line = input_line ic in
       match String.split_on_char ' ' line with
@@ -49,22 +53,19 @@ let () =
     (* Reverse the lists to maintain the original order *)
     m_list := List.rev !m_list;
     k_list := List.rev !k_list;
+   
+    (* Save the head values of m_list and k_list *)
+    let m = List.hd !m_list in
+    let k = List.hd !k_list in
+
+    (* Remove the heads from m_list and k_list *)
+    m_list := List.tl !m_list;
+    k_list := List.tl !k_list;
 
     (* Extract the first elements as m and k *)
-    let m = List.hd !m_list and k = List.hd !k_list in
+    let diff = diff (!m_list) (!k_list) in
+    let sorted_zipped = List.sort (fun (a, _) (b, _) -> compare a b) (zip_with_index diff 0) in
+    let reversed_sorted_zipped = List.rev sorted_zipped in
 
-    (* Sort the remaining elements in descending order *)
-    m_list := List.sort (fun a b -> compare b a) (List.tl !m_list);
-    k_list := List.sort (fun a b -> compare b a) (List.tl !k_list);
-
-    (* Assign the sorted lists *)
-    let lst1, lst2 = !m_list, !k_list in
-
-    (* Print the parsed and sorted data *)
-    (* Printf.printf "m: %d, k: %d\nList1: [%s]\nList2: [%s]\n"
-      m k
-      (String.concat "; " (List.map string_of_int lst1))
-      (String.concat "; " (List.map string_of_int lst2)); *)
-
-    (* Compute and print the selective sum *)
-    Printf.printf "Sum: %d\n" (sum_selective lst1 lst2 m k)
+    let result = sum (reversed_sorted_zipped, m, k) !m_list !k_list in
+    Printf.printf "Result: %d\n" result;
