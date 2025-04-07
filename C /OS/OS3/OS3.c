@@ -12,11 +12,11 @@ bool args_handler(int *arg1, char *arg2, int *command)
 {
     if (*arg1 <= 0 || strlen(arg2) == 0){ return false; }
     
-    if (arg2 == NULL || strcmp(arg2, "") == 0 || strcmp(arg2, "--random") == 0)
+    if (strcmp(arg2, "--random") == 0)
     {
         *command = 2; // Random
     }
-    else if(strcmp(arg2, "--round-robin") == 0)
+    else if(strcmp(arg2, "empty") == 0  || strcmp(arg2, "--round-robin") == 0)
     {
         *command = 1; // Round Robin
     }
@@ -41,7 +41,7 @@ int is_valid_integer(char *str)
 
 int main(int argc, char *argv[])
 {
-    if (argc != 3)
+    if (argc != 3 && argc !=2)
     {
         write(STDERR_FILENO, "Error: Missing or too many arguments.\n", 38);
         write(STDERR_FILENO, "Example: ./OS_first.c 5 --round-robin\n", 38);
@@ -49,7 +49,16 @@ int main(int argc, char *argv[])
     }
 
     int N = atoi(argv[1]);
-    char *msg = argv[2];
+    char *msg;
+    if (argc == 3)
+    {
+        msg = argv[2];
+    }
+    else
+    {
+        msg = "empty";
+    }
+
     int command = 0;
     int ptc[N][2]; // Parent to child
     int ctp[N][2]; // Child to parent
@@ -123,7 +132,7 @@ int main(int argc, char *argv[])
         scanf("%s", buffer);
         if(strcmp(buffer, "help") == 0)
         {
-            printf("Type a number to send job to a child!");
+            printf("Type a number to send job to a child!\n");
         }
         if(is_valid_integer(buffer))
         {
