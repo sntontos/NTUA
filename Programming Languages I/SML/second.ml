@@ -25,17 +25,22 @@ let () =
   (* Open the input file *)
   let ic = open_in filename in
   try
-    (* Read lines from the file and process them *)
+    (* Read the first line to extract m and k *)
+    let first_line = input_line ic in
+    let m, k =
+      match String.split_on_char ' ' first_line with
+      | [m_str; k_str] -> int_of_string m_str, int_of_string k_str
+      | _ -> failwith "First line must contain exactly two integers (m and k)"
+    in
+
+    (* Read the remaining lines and split into m_list and k_list *)
     while true do
       let line = input_line ic in
       match String.split_on_char ' ' line with
-      | m :: k :: [] ->
-        (* Parse integers and add them to the respective lists *)
-        let m = int_of_string m in
-        let k = int_of_string k in
-        m_list := m :: !m_list;
-        k_list := k :: !k_list
-      | _ -> failwith "Invalid input format"
+      | [m_val; k_val] ->
+          m_list := int_of_string m_val :: !m_list;
+          k_list := int_of_string k_val :: !k_list
+      | _ -> failwith "Invalid input format in data lines"
     done
   with End_of_file ->
     (* Close the input channel when done reading *)
