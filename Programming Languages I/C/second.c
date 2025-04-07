@@ -4,6 +4,18 @@
 #include <stdbool.h>
 #include <string.h>
 
+// Function to compare integers in descending order
+typedef struct {
+    int diff;
+    int index;
+} Worker;
+
+int compare_workers_desc(const void *a, const void *b) {
+    const Worker *w1 = (const Worker *)a;
+    const Worker *w2 = (const Worker *)b;
+    return w2->diff - w1->diff;  // Descending order
+}
+
 bool load_data(const char *filename, int **M_ptr, int **K_ptr, int *m_ptr, int *k_ptr, int *count_ptr) {
     size_t len = strlen(filename);
     if (len < 4 || strcmp(filename + len - 4, ".txt") != 0) {
@@ -55,25 +67,32 @@ bool load_data(const char *filename, int **M_ptr, int **K_ptr, int *m_ptr, int *
 int find_max(int *M, int *K, int m, int k) //M and K are arrays of integers and are sorted in descending order
 {   
     int best_sum = 0;
-    int i = 0, j = 0;
-    int count = 0;
-    while ((i < m || j < k) && count < m + k) {
-        if (i < m && (j >= k || M[i] >= K[j])) {
-            best_sum += M[i];
-            i++;
-        } else if (j < k) {
-            best_sum += K[j];
-            j++;
-        }
-        count++;
+    int i = 0;
+    Worker *workers = malloc((m + k) * sizeof(Worker));
+    if (workers == NULL) {
+        perror("Memory allocation failed");
+        return -1;
     }
+    for (i = 0; i < m + k; i++) {
+        workers[i].diff = M[i] - K[i];
+        workers[i].index = i;
+    }
+    qsort(workers, m + k, sizeof(Worker), compare_workers_desc);
+
+    for(int i = 0; i < m + k; i++)
+    {
+        if (i < m)
+        {
+            best_sum += M[workers[i].index];
+        }
+        else
+        {
+            best_sum += K[workers[i].index];
+        }
+    }
+    free(workers);
 
     return best_sum;
-}
-
-// Function to compare integers in descending order
-int compare_desc(const void *a, const void *b) {
-    return (*(int *)b - *(int *)a);
 }
 
 int main(int argc, char *argv[])
@@ -91,9 +110,9 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    // Sort M and K in descending order
-    qsort(M, count, sizeof(int), compare_desc);
-    qsort(K, count, sizeof(int), compare_desc);
+    // // Sort M and K in descending order
+    // qsort(M, count, sizeof(int), compare_desc);
+    // qsort(K, count, sizeof(int), compare_desc);
 
 
     printf("Best sum: %d\n", find_max(M, K, m, k));
