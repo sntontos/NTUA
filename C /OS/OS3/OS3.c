@@ -127,7 +127,8 @@ int main(int argc, char *argv[])
     int i = 0;
 
     while(1)
-    {
+    {   
+        
         ssize_t bytes_read = read(STDIN_FILENO, buffer, 100);
         if (bytes_read <= 0) continue;
         buffer[strcspn(buffer, "\n")] = '\0'; // Remove newline
@@ -137,13 +138,22 @@ int main(int argc, char *argv[])
             write(STDOUT_FILENO, "Type an integer to send a job to a child of type exit to terminate!\n", 70);
         }
         if(is_valid_integer(buffer))
-        {
+        {   
             int num = atoi(buffer);
             char assign_msg[100];
             snprintf(assign_msg, sizeof(assign_msg), "Parent Assigned %d to child %d\n", num, child_pids[i]);
             write(STDOUT_FILENO, assign_msg, strlen(assign_msg));
 
             write(ptc[i][1], &num, sizeof(num)); // Write to the pipe
+
+            if(command == 1)
+            {
+                i = (i + 1) % N; // Round Robin
+            }
+            else if(command == 2)
+            {
+                i = rand() % N; // Random
+            }
 
             // Use select to wait for response from any child
             fd_set readfds;
@@ -188,15 +198,6 @@ int main(int argc, char *argv[])
             free(buffer);
             write(STDOUT_FILENO, "Child processes terminated.....\nExiting parent process.....\n", 62);
             exit(0);
-        }
-
-        if(command == 1)
-        {
-            i = (i + 1) % N; // Round Robin
-        }
-        else if(command == 2)
-        {
-            i = rand() % N; // Random
         }
     }
 
