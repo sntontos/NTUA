@@ -128,16 +128,20 @@ int main(int argc, char *argv[])
 
     while(1)
     {
-        printf("Enter a number or type help: ");
-        scanf("%s", buffer);
+        ssize_t bytes_read = read(STDIN_FILENO, buffer, 100);
+        if (bytes_read <= 0) continue;
+        buffer[strcspn(buffer, "\n")] = '\0'; // Remove newline
+
         if(strcmp(buffer, "help") == 0)
         {
-            printf("Type a number to send job to a child!\n");
+            write(STDOUT_FILENO, "Type an integer to send a job to a child of type exit to terminate!\n", 70);
         }
         if(is_valid_integer(buffer))
         {
             int num = atoi(buffer);
-            printf("Parent Assigned %d to child %d\n", num, child_pids[i]);
+            char assign_msg[100];
+            snprintf(assign_msg, sizeof(assign_msg), "Parent Assigned %d to child %d\n", num, child_pids[i]);
+            write(STDOUT_FILENO, assign_msg, strlen(assign_msg));
 
             write(ptc[i][1], &num, sizeof(num)); // Write to the pipe
 
@@ -159,13 +163,15 @@ int main(int argc, char *argv[])
             if (ready == -1) {
                 perror("select failed");
             } else if (ready == 0) {
-                printf("Timeout: No response from children.\n");
+                write(STDOUT_FILENO, "Timeout: No response from children.\n", 37);
             } else {
                 for (int j = 0; j < N; j++) {
                     if (FD_ISSET(ctp[j][0], &readfds)) {
                         int result;
                         if (read(ctp[j][0], &result, sizeof(result)) > 0) {
-                            printf("Parent received result %d from child %d\n", result, child_pids[j]);
+                            char result_msg[100];
+                            snprintf(result_msg, sizeof(result_msg), "Parent received result %d from child %d\n", result, child_pids[j]);
+                            write(STDOUT_FILENO, result_msg, strlen(result_msg));
                         }
                     }
                 }
@@ -180,7 +186,7 @@ int main(int argc, char *argv[])
             }
             free(child_pids);
             free(buffer);
-            printf("Child processes terminated.....\nExiting parent process.....\n");
+            write(STDOUT_FILENO, "Child processes terminated.....\nExiting parent process.....\n", 62);
             exit(0);
         }
 
