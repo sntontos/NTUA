@@ -152,6 +152,8 @@ int main(int argc, char *argv[])
             }
             free(child_pids);
             free(buffer);
+            free(ptc);
+            free(ctp);
             write(STDOUT_FILENO, "Child processes terminated.....\nExiting parent process.....\n", 62);
             exit(0);
         }
@@ -218,5 +220,7 @@ int main(int argc, char *argv[])
     }
     free(child_pids);
     free(buffer);
+    free(ptc);
+    free(ctp);
     exit(0);
 }
