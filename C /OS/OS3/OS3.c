@@ -13,17 +13,16 @@
 #define EXIT_FORK_FAILED 3
 #define EXIT_WRITE_FAILED 4
 
-// Define the usage message exactly as specified.
+
 #define USAGE "Usage: ask3 <nChildren> [--random] [--round-robin]\n"
 
 bool args_handler(int *arg1, char *arg2, int *command)
 {
-    // Check that the number of children is positive and that the command (if provided) is non-empty.
+ 
     if (*arg1 <= 0 || strlen(arg2) == 0) {
         return false;
     }
 
-    // If a third argument was provided, check that it is either "--random" or "--round-robin".
     if (strcmp(arg2, "--random") == 0) {
         *command = 2; // Random mode
     }
@@ -49,7 +48,7 @@ int is_valid_integer(char *str)
 
 int main(int argc, char *argv[])
 {
-    // Valid argument counts: either 2 (only nChildren) or 3 (nChildren and scheduling option).
+
     if (argc != 2 && argc != 3) {
         write(STDERR_FILENO, USAGE, strlen(USAGE));
         exit(EXIT_INVALID_ARGS);
@@ -57,7 +56,7 @@ int main(int argc, char *argv[])
 
     int N = atoi(argv[1]);
     char *msg;
-    // If no third argument is provided, use "empty" to denote the default case.
+  
     if (argc == 3) {
         msg = argv[2];
     }
@@ -66,13 +65,13 @@ int main(int argc, char *argv[])
     }
 
     int command = 0;
-    // Validate the command argument. If the third argument is not either "--round-robin" or "--random", args_handler returns false.
+ 
     if (!args_handler(&N, msg, &command)) {
         write(STDERR_FILENO, USAGE, strlen(USAGE));
         exit(EXIT_INVALID_ARGS);
     }
 
-    // Allocate pipes for communication (parent-to-child and child-to-parent).
+
     int (*ptc)[2] = malloc(N * sizeof(int[2]));
     int (*ctp)[2] = malloc(N * sizeof(int[2]));
     if (ptc == NULL || ctp == NULL) {
@@ -86,14 +85,14 @@ int main(int argc, char *argv[])
         }
     }
 
-    // Allocate an array to keep track of child process IDs.
+   
     pid_t *child_pids = (pid_t *)malloc(N * sizeof(pid_t));
     if (child_pids == NULL) {
         perror("malloc failed for child_pids");
         exit(EXIT_MALLOC_FAILED);
     }
 
-    // Fork N children.
+
     for (int i = 0; i < N; i++) {
         pid_t pid = fork();
         if (pid < 0) {
@@ -103,13 +102,13 @@ int main(int argc, char *argv[])
         }
         if (pid == 0) {
             // Child process:
-            close(ptc[i][1]); // Close parent's write end.
-            close(ctp[i][0]); // Close parent's read end.
+            close(ptc[i][1]); // Child reads from ptc.
+            close(ctp[i][0]); // Child writes to ctp.
             int num;
             while (1) {
                 if (read(ptc[i][0], &num, sizeof(num)) <= 0)
                     break;
-                // Example job: double the number.
+              
                 num *= 2;
                 sleep(5);
                 if (write(ctp[i][1], &num, sizeof(num)) <= 0)
@@ -122,7 +121,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    // In the parent process, close the unused ends of the pipes.
+
     for (int j = 0; j < N; j++) {
         close(ptc[j][0]); // Parent writes to ptc.
         close(ctp[j][1]); // Parent reads from ctp.
@@ -136,30 +135,43 @@ int main(int argc, char *argv[])
 
     int i = 0; // Index for scheduling among children.
 
-    while (1) {
+    while(1)
+    {   
         ssize_t bytes_read = read(STDIN_FILENO, buffer, 100);
         if (bytes_read <= 0)
             continue;
-        buffer[strcspn(buffer, "\n")] = '\0'; // Remove newline
-
-        if (strcmp(buffer, "help") == 0) {
-            write(STDOUT_FILENO, "Type an integer to send a job to a child or type 'exit' to terminate!\n", 70);
+        buffer[strcspn(buffer, "\n")] = '\0'; // Remove newline character
+    
+        // Check if the user requested to exit.
+        if (strcmp(buffer, "exit") == 0)
+        {
+            // Terminate all child processes.
+            for (int j = 0; j < N; j++) {
+                kill(child_pids[j], SIGTERM);
+                waitpid(child_pids[j], NULL, 0);
+            }
+            free(child_pids);
+            free(buffer);
+            write(STDOUT_FILENO, "Child processes terminated.....\nExiting parent process.....\n", 62);
+            exit(0);
         }
-        if (is_valid_integer(buffer)) {
+        // If the input is a valid integer, process it as a job.
+        else if (is_valid_integer(buffer))
+        {
             int num = atoi(buffer);
             char assign_msg[100];
             snprintf(assign_msg, sizeof(assign_msg), "Parent Assigned %d to child %d\n", num, child_pids[i]);
             write(STDOUT_FILENO, assign_msg, strlen(assign_msg));
-
-            write(ptc[i][1], &num, sizeof(num)); // Send job to the selected child.
-
-            // Advance the scheduling index according to the selected mode.
+    
+            write(ptc[i][1], &num, sizeof(num)); // Send the job to the selected child.
+    
+            
             if (command == 1)
                 i = (i + 1) % N;
             else if (command == 2)
                 i = rand() % N;
-
-            // Wait for a response using select().
+    
+            // Set up select() to wait for responses.
             fd_set readfds;
             FD_ZERO(&readfds);
             int maxfd = -1;
@@ -191,18 +203,13 @@ int main(int argc, char *argv[])
                 }
             }
         }
-        else if (strcmp(buffer, "exit") == 0) {
-            // Terminate all child processes.
-            for (int j = 0; j < N; j++) {
-                kill(child_pids[j], SIGTERM);
-                waitpid(child_pids[j], NULL, 0);
-            }
-            free(child_pids);
-            free(buffer);
-            write(STDOUT_FILENO, "Child processes terminated.....\nExiting parent process.....\n", 62);
-            exit(0);
+       
+        else
+        {
+            write(STDOUT_FILENO, "Type an integer to send a job to a child or type 'exit' to terminate!\n", 70);
         }
     }
+    
 
     // Failsafe cleanup (if loop ever breaks)
     for (int j = 0; j < N; j++) {
