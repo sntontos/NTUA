@@ -7,7 +7,22 @@
 #include <poll.h>
 #include <stdlib.h>
 #include <time.h>
+#include <netdb.h>
 
+#define default_port "41312"
+#define default_host "os4.cloud.dslab.ece.ntua.gr"
+
+
+char *gethost(char *hostname) {
+    static char ip[INET_ADDRSTRLEN];
+    struct hostent *he = gethostbyname(hostname);
+    if (he == NULL) {
+        perror("gethostbyname failed");
+        exit(1);
+    }
+    inet_ntop(AF_INET, he->h_addr, ip, sizeof(ip));
+    return ip; // Return the IP address as a string
+}
 
 void get_message(char *message){
     char *token;
@@ -59,54 +74,70 @@ void get_message(char *message){
 
 int main(int argc, char *argv[]){
 
-    if (argc != 6 && argc != 2 && argc != 1) {
+    if (argc != 6 && argc != 5 && argc != 2 && argc != 1) {
         write(STDERR_FILENO, "Missing one or too many arguments", 10);
         exit(1);
     }
 
-    char *host = NULL;
-    char *port = NULL;
-    char *mode = NULL;
+
+    char *host = gethost(default_host);
+    char *port = default_port;
+    char *mode = "notdebug";
+
     int sock;
-    struct sockaddr_in local_addr, server_addr;
+    struct sockaddr_in server_addr;
 
-    //default case 
-    if (argc == 2){
-        mode = argv[1];
-        host = "147.102.75.201";
-        port = "41312";
+    if(argc == 6){
+        if(strcmp(argv[1], "--host") == 0 && strcmp(argv[3], "--port") == 0 && strcmp(argv[5], "--debug") == 0){    
+            if(strcmp(argv[2], "HOST") != 0){
+                host = gethost(argv[2]);
+            }
+            if(strcmp(argv[2], "PORT") != 0){
+                port = argv[4];
+            }
+            mode = argv[5];
+        }
+        else {
+            write(STDERR_FILENO, "Invalid argument\n", 17);
+            exit(1);
+        }
     }
-    //case with host and port, if HOST and PORT -> default
-    if (argc == 6){
-        host = argv[2];
-        port = argv[4];
-        mode = argv[5];
+    else if(argc == 5){
+        if(strcmp(argv[1], "--host") == 0 && strcmp(argv[3], "--port") == 0)
+        {    
+        if(strcmp(argv[2], "HOST") != 0){
+            host = gethost(argv[2]);
+        }
+        if(strcmp(argv[4], "PORT") != 0){
+            port = argv[4];
+        }
+        }
+        else {
+            write(STDERR_FILENO, "Invalid argument\n", 17);
+            exit(1);
+        }
+    }
+    else if(argc == 2){
+        if(strcmp(argv[1], "--debug") == 0) {
+            mode = argv[1];
+        }
+        else {
+            write(STDERR_FILENO, "Invalid argument\n", 17);
+            exit(1);
+        }
     }
 
-    if (argc == 1){
-        host = "147.102.75.201";
-        port = "41312";
-    }
+
 
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("Socket creation error");
         return 1;
     }
 
-    memset(&local_addr, 0, sizeof(local_addr));
-    local_addr.sin_family = AF_INET;
-    local_addr.sin_port = htons(0); // Port number
-    local_addr.sin_addr.s_addr = htonl(INADDR_ANY); // Any local address
-
-    if(bind(sock, (struct sockaddr *)&local_addr, sizeof(local_addr)) < 0) {
-        perror("Bind failed");
-        close(sock);
-        return 1;
-    }
-
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(atoi(port)); // Server port number
+    printf("Using host: %s\n", host);
 
     if (inet_pton(AF_INET, host, &server_addr.sin_addr) <= 0) { // IP resolved for os4.cloud.dslab.ece.ntua.gr
         perror("Invalid server address");
@@ -155,6 +186,10 @@ int main(int argc, char *argv[]){
                 write(STDOUT_FILENO, "[DEBUG] received '", 18);
                 write(STDOUT_FILENO, received, bytes);
                 write(STDOUT_FILENO, "'\n", 3);
+            }
+            else {
+                write(STDOUT_FILENO, received, bytes);
+                write(STDOUT_FILENO, "\n", 1);
             }
 
             if (strcmp(buffer, "get\n") == 0) {
