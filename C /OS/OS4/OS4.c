@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <time.h>
 
+
 void get_message(char *message){
     char *token;
     char buffer[64];
@@ -156,7 +157,7 @@ int main(int argc, char *argv[]){
                 write(STDOUT_FILENO, "'\n", 3);
             }
 
-            if (strcmp(buffer, "get") == 0) {
+            if (strcmp(buffer, "get\n") == 0) {
                 get_message(received);
             }
             
@@ -164,7 +165,7 @@ int main(int argc, char *argv[]){
 
         if (fds[1].revents & POLLIN) { // User input ready
             if (read(STDIN_FILENO, buffer, sizeof(buffer) - 1) <= 0) {
-                printf("Input closed\n");
+                write(STDERR_FILENO, "Error reading from stdin\n", 25);
                 break;
             }
             buffer[strcspn(buffer, "\n")] = '\0'; // Remove newline character
@@ -181,7 +182,10 @@ int main(int argc, char *argv[]){
                 write(STDOUT_FILENO, buffer, strlen(buffer));
                 write(STDOUT_FILENO, "'\n", 3);
             }
+            strcat(buffer, "\n");
             send(sock, buffer, strlen(buffer), 0);
+
+            
         }
     }
 
