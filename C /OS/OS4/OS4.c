@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <netdb.h>
+#include <stdbool.h>
 
 #define default_port "41312"
 #define default_host "os4.cloud.dslab.ece.ntua.gr"
@@ -75,14 +76,14 @@ void get_message(char *message){
 int main(int argc, char *argv[]){
 
     if (argc != 6 && argc != 5 && argc != 2 && argc != 1) {
-        write(STDERR_FILENO, "Missing one or too many arguments", 10);
+        write(STDERR_FILENO, "Missing one or too many arguments\n", 35);
         exit(1);
     }
 
 
     char *host = gethost(default_host);
     char *port = default_port;
-    char *mode = "notdebug";
+    bool mode = false;
 
     int sock;
     struct sockaddr_in server_addr;
@@ -95,7 +96,7 @@ int main(int argc, char *argv[]){
             if(strcmp(argv[2], "PORT") != 0){
                 port = argv[4];
             }
-            mode = argv[5];
+            mode = true;
         }
         else {
             write(STDERR_FILENO, "Invalid argument\n", 17);
@@ -119,7 +120,7 @@ int main(int argc, char *argv[]){
     }
     else if(argc == 2){
         if(strcmp(argv[1], "--debug") == 0) {
-            mode = argv[1];
+            mode = true;
         }
         else {
             write(STDERR_FILENO, "Invalid argument\n", 17);
@@ -137,7 +138,7 @@ int main(int argc, char *argv[]){
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(atoi(port)); // Server port number
-    printf("Using host: %s\n", host);
+
 
     if (inet_pton(AF_INET, host, &server_addr.sin_addr) <= 0) { // IP resolved for os4.cloud.dslab.ece.ntua.gr
         perror("Invalid server address");
@@ -146,10 +147,13 @@ int main(int argc, char *argv[]){
     }
 
     if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-        perror("Connect failed");
+        write(STDERR_FILENO, "Connection failed\n", 18);
         close(sock);
         return 1;
     }
+    write(STDOUT_FILENO, "Successfully connected to server: ", 34);
+    write(STDOUT_FILENO, host , strlen(host));
+    write(STDOUT_FILENO, "\n", 1);
 
     struct pollfd fds[2];
     fds[0].fd = sock;
@@ -158,6 +162,8 @@ int main(int argc, char *argv[]){
     fds[1].events = POLLIN;
     char buffer[1024];
     char received[1024];
+    memset(buffer, 0, sizeof(buffer));
+    memset(received, 0, sizeof(received));
 
 
     while (1) {
@@ -169,6 +175,7 @@ int main(int argc, char *argv[]){
         }
 
         if (fds[0].revents & POLLIN) { // Data from server
+            memset(received, 0, sizeof(received));
             ssize_t bytes = recv(sock, received, sizeof(received) - 1, 0);
             received[strcspn(received, "\n")] = '\0'; // Remove newline character
             if (bytes <= 0) {
@@ -182,7 +189,7 @@ int main(int argc, char *argv[]){
                 continue;
             }
 
-            if(strcmp(mode, "--debug") == 0){
+            if(mode){
                 write(STDOUT_FILENO, "[DEBUG] received '", 18);
                 write(STDOUT_FILENO, received, bytes);
                 write(STDOUT_FILENO, "'\n", 3);
@@ -199,6 +206,7 @@ int main(int argc, char *argv[]){
         }
 
         if (fds[1].revents & POLLIN) { // User input ready
+            memset(buffer, 0, sizeof(buffer));
             if (read(STDIN_FILENO, buffer, sizeof(buffer) - 1) <= 0) {
                 write(STDERR_FILENO, "Error reading from stdin\n", 25);
                 break;
@@ -212,7 +220,7 @@ int main(int argc, char *argv[]){
                 write(STDOUT_FILENO, "Actions type:\n  'exit' o terminate\n  'get' to retrieve data from server \n  'No. Name Surname Reason' to ask for permission\n", 125);
                 continue;
             }
-            if(strcmp(mode, "--debug") == 0){
+            if(mode){
                 write(STDOUT_FILENO, "\n[DEBUG] sent '", 15);
                 write(STDOUT_FILENO, buffer, strlen(buffer));
                 write(STDOUT_FILENO, "'\n", 3);
