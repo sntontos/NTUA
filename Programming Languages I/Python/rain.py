@@ -1,14 +1,19 @@
 import sys
+import tracemalloc
 
 def read_file(filename): # Reads a file and returns a list of integers
     with open(filename, 'r') as file:
+        data_num = file.readline()
         data = file.readlines()
     if not data or not data[0].strip():
         raise ValueError("File is empty or contains no valid data.")
     try:
         values = list(map(int, data[0].split()))
+        length = int(data_num.strip())
     except ValueError:
         raise ValueError("File contains non-integer values.")
+    if length != len(values):
+        raise ValueError("Length specified does not match the number of values in the file.")
     return values
 
 def get_heights(): # Gets the heights from a file specified in the command line argument
@@ -54,12 +59,21 @@ def calculate_water_volume(heights): # Calculates the total volume of water that
     return water_volume
 
 if __name__ == "__main__":
+    tracemalloc.start()
+    start_snapshot = tracemalloc.take_snapshot()
     heights = get_heights()
-    print(type(heights))
     if heights:
         total_volume = calculate_water_volume(heights)
         print(total_volume)
+        end_snapshot = tracemalloc.take_snapshot()
+        top_stats = end_snapshot.compare_to(start_snapshot, 'lineno')
+        # print("[ Top 10 memory allocations ]")
+        # for stat in top_stats[:10]:
+        #     print(stat)
+        # current, peak = tracemalloc.get_traced_memory()
+        # print(f"Current memory usage: {current / 1024:.1f} KiB")
+        # print(f"Peak memory usage: {peak / 1024:.1f} KiB")
+        tracemalloc.stop()
     else:
         print("No heights provided to calculate water volume.")
     sys.exit(0)
-  
